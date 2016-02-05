@@ -1,6 +1,0 @@
-## Lets create a simple classification model for classifying various samples of the Iris flower
-from sklearn.datasets import load_iris
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.cross_validation import cross_val_score
-import matplotlib.pyplot as plt
-%matplotlib inline
