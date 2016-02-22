@@ -1,0 +1,1110 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Predict an employee's access needs, given his/her job role"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "When an employee at any company starts work, they first need to obtain the computer access necessary to fulfill their role. This access may allow an employee to read/manipulate resources through various applications or web portals. It is assumed that employees fulfilling the functions of a given role will access the same or similar resources. It is often the case that employees figure out the access they need as they encounter roadblocks during their daily work (e.g. not able to log into a reporting portal). A knowledgeable supervisor then takes time to manually grant the needed access in order to overcome access obstacles. As employees move throughout a company, this access discovery/recovery cycle wastes a nontrivial amount of time and money.\n",
+    "\n",
+    "There is a considerable amount of data regarding an employee’s role within an organization and the resources to which they have access. Given the data related to current employees and their provisioned access, models can be built that automatically determine access privileges as employees enter and leave roles within a company. These auto-access models seek to minimize the human involvement required to grant or revoke employee access."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Objective"
+   ]
+  },
+  {
+   "cell_type": "raw",
+   "metadata": {},
+   "source": [
+    "The objective of this competition is to build a model, learned using historical data, that will determine an employee's access needs, such that manual access transactions (grants and revokes) are minimized as the employee's attributes change over time. The model will take an employee's role information and a resource code and will return whether or not access should be granted."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "# Import libraries to be used\n",
+    "from sklearn.cross_validation import cross_val_score\n",
+    "from sklearn.cross_validation import train_test_split\n",
+    "from sklearn.grid_search import GridSearchCV\n",
+    "from sklearn.grid_search import RandomizedSearchCV\n",
+    "from sklearn import metrics\n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "%matplotlib inline\n",
+    "import numpy as np\n",
+    "import pandas as pd"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>id</th>\n",
+       "      <th>RESOURCE</th>\n",
+       "      <th>MGR_ID</th>\n",
+       "      <th>ROLE_ROLLUP_1</th>\n",
+       "      <th>ROLE_ROLLUP_2</th>\n",
+       "      <th>ROLE_DEPTNAME</th>\n",
+       "      <th>ROLE_TITLE</th>\n",
+       "      <th>ROLE_FAMILY_DESC</th>\n",
+       "      <th>ROLE_FAMILY</th>\n",
+       "      <th>ROLE_CODE</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>58916</th>\n",
+       "      <td>58917</td>\n",
+       "      <td>75078</td>\n",
+       "      <td>4565</td>\n",
+       "      <td>117961</td>\n",
+       "      <td>118386</td>\n",
+       "      <td>121961</td>\n",
+       "      <td>118784</td>\n",
+       "      <td>117906</td>\n",
+       "      <td>290919</td>\n",
+       "      <td>118786</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>58917</th>\n",
+       "      <td>58918</td>\n",
+       "      <td>6977</td>\n",
+       "      <td>72209</td>\n",
+       "      <td>117961</td>\n",
+       "      <td>118225</td>\n",
+       "      <td>124948</td>\n",
+       "      <td>118054</td>\n",
+       "      <td>118054</td>\n",
+       "      <td>117887</td>\n",
+       "      <td>118055</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>58918</th>\n",
+       "      <td>58919</td>\n",
+       "      <td>39262</td>\n",
+       "      <td>6114</td>\n",
+       "      <td>117961</td>\n",
+       "      <td>118343</td>\n",
+       "      <td>6104</td>\n",
+       "      <td>118278</td>\n",
+       "      <td>118260</td>\n",
+       "      <td>290919</td>\n",
+       "      <td>118279</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>58919</th>\n",
+       "      <td>58920</td>\n",
+       "      <td>1023</td>\n",
+       "      <td>8674</td>\n",
+       "      <td>117961</td>\n",
+       "      <td>118327</td>\n",
+       "      <td>120318</td>\n",
+       "      <td>118321</td>\n",
+       "      <td>117906</td>\n",
+       "      <td>290919</td>\n",
+       "      <td>118322</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>58920</th>\n",
+       "      <td>58921</td>\n",
+       "      <td>44977</td>\n",
+       "      <td>3918</td>\n",
+       "      <td>117961</td>\n",
+       "      <td>118343</td>\n",
+       "      <td>118660</td>\n",
+       "      <td>119433</td>\n",
+       "      <td>133686</td>\n",
+       "      <td>118424</td>\n",
+       "      <td>119435</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "          id  RESOURCE  MGR_ID  ROLE_ROLLUP_1  ROLE_ROLLUP_2  ROLE_DEPTNAME  \\\n",
+       "58916  58917     75078    4565         117961         118386         121961   \n",
+       "58917  58918      6977   72209         117961         118225         124948   \n",
+       "58918  58919     39262    6114         117961         118343           6104   \n",
+       "58919  58920      1023    8674         117961         118327         120318   \n",
+       "58920  58921     44977    3918         117961         118343         118660   \n",
+       "\n",
+       "       ROLE_TITLE  ROLE_FAMILY_DESC  ROLE_FAMILY  ROLE_CODE  \n",
+       "58916      118784            117906       290919     118786  \n",
+       "58917      118054            118054       117887     118055  \n",
+       "58918      118278            118260       290919     118279  \n",
+       "58919      118321            117906       290919     118322  \n",
+       "58920      119433            133686       118424     119435  "
+      ]
+     },
+     "execution_count": 2,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Read the training and testing data\n",
+    "train = pd.read_csv('amazon_train.csv')\n",
+    "test = pd.read_csv('amazon_test.csv')\n",
+    "train.tail()\n",
+    "test.tail()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "#### Notice how the test data has an 'id'  feature and the train data doesn't. This will affect our prediction "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>ACTION</th>\n",
+       "      <th>RESOURCE</th>\n",
+       "      <th>MGR_ID</th>\n",
+       "      <th>ROLE_ROLLUP_1</th>\n",
+       "      <th>ROLE_ROLLUP_2</th>\n",
+       "      <th>ROLE_DEPTNAME</th>\n",
+       "      <th>ROLE_TITLE</th>\n",
+       "      <th>ROLE_FAMILY_DESC</th>\n",
+       "      <th>ROLE_FAMILY</th>\n",
+       "      <th>ROLE_CODE</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>count</th>\n",
+       "      <td>32769.000000</td>\n",
+       "      <td>32769.000000</td>\n",
+       "      <td>32769.000000</td>\n",
+       "      <td>32769.000000</td>\n",
+       "      <td>32769.000000</td>\n",
+       "      <td>32769.000000</td>\n",
+       "      <td>32769.000000</td>\n",
+       "      <td>32769.000000</td>\n",
+       "      <td>32769.000000</td>\n",
+       "      <td>32769.000000</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>mean</th>\n",
+       "      <td>0.942110</td>\n",
+       "      <td>42923.916171</td>\n",
+       "      <td>25988.957979</td>\n",
+       "      <td>116952.627788</td>\n",
+       "      <td>118301.823156</td>\n",
+       "      <td>118912.779914</td>\n",
+       "      <td>125916.152644</td>\n",
+       "      <td>170178.369648</td>\n",
+       "      <td>183703.408893</td>\n",
+       "      <td>119789.430132</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>std</th>\n",
+       "      <td>0.233539</td>\n",
+       "      <td>34173.892702</td>\n",
+       "      <td>35928.031650</td>\n",
+       "      <td>10875.563591</td>\n",
+       "      <td>4551.588572</td>\n",
+       "      <td>18961.322917</td>\n",
+       "      <td>31036.465825</td>\n",
+       "      <td>69509.462130</td>\n",
+       "      <td>100488.407413</td>\n",
+       "      <td>5784.275516</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>min</th>\n",
+       "      <td>0.000000</td>\n",
+       "      <td>0.000000</td>\n",
+       "      <td>25.000000</td>\n",
+       "      <td>4292.000000</td>\n",
+       "      <td>23779.000000</td>\n",
+       "      <td>4674.000000</td>\n",
+       "      <td>117879.000000</td>\n",
+       "      <td>4673.000000</td>\n",
+       "      <td>3130.000000</td>\n",
+       "      <td>117880.000000</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>25%</th>\n",
+       "      <td>1.000000</td>\n",
+       "      <td>20299.000000</td>\n",
+       "      <td>4566.000000</td>\n",
+       "      <td>117961.000000</td>\n",
+       "      <td>118102.000000</td>\n",
+       "      <td>118395.000000</td>\n",
+       "      <td>118274.000000</td>\n",
+       "      <td>117906.000000</td>\n",
+       "      <td>118363.000000</td>\n",
+       "      <td>118232.000000</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>50%</th>\n",
+       "      <td>1.000000</td>\n",
+       "      <td>35376.000000</td>\n",
+       "      <td>13545.000000</td>\n",
+       "      <td>117961.000000</td>\n",
+       "      <td>118300.000000</td>\n",
+       "      <td>118921.000000</td>\n",
+       "      <td>118568.000000</td>\n",
+       "      <td>128696.000000</td>\n",
+       "      <td>119006.000000</td>\n",
+       "      <td>118570.000000</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>75%</th>\n",
+       "      <td>1.000000</td>\n",
+       "      <td>74189.000000</td>\n",
+       "      <td>42034.000000</td>\n",
+       "      <td>117961.000000</td>\n",
+       "      <td>118386.000000</td>\n",
+       "      <td>120535.000000</td>\n",
+       "      <td>120006.000000</td>\n",
+       "      <td>235280.000000</td>\n",
+       "      <td>290919.000000</td>\n",
+       "      <td>119348.000000</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>max</th>\n",
+       "      <td>1.000000</td>\n",
+       "      <td>312153.000000</td>\n",
+       "      <td>311696.000000</td>\n",
+       "      <td>311178.000000</td>\n",
+       "      <td>286791.000000</td>\n",
+       "      <td>286792.000000</td>\n",
+       "      <td>311867.000000</td>\n",
+       "      <td>311867.000000</td>\n",
+       "      <td>308574.000000</td>\n",
+       "      <td>270691.000000</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "             ACTION       RESOURCE         MGR_ID  ROLE_ROLLUP_1  \\\n",
+       "count  32769.000000   32769.000000   32769.000000   32769.000000   \n",
+       "mean       0.942110   42923.916171   25988.957979  116952.627788   \n",
+       "std        0.233539   34173.892702   35928.031650   10875.563591   \n",
+       "min        0.000000       0.000000      25.000000    4292.000000   \n",
+       "25%        1.000000   20299.000000    4566.000000  117961.000000   \n",
+       "50%        1.000000   35376.000000   13545.000000  117961.000000   \n",
+       "75%        1.000000   74189.000000   42034.000000  117961.000000   \n",
+       "max        1.000000  312153.000000  311696.000000  311178.000000   \n",
+       "\n",
+       "       ROLE_ROLLUP_2  ROLE_DEPTNAME     ROLE_TITLE  ROLE_FAMILY_DESC  \\\n",
+       "count   32769.000000   32769.000000   32769.000000      32769.000000   \n",
+       "mean   118301.823156  118912.779914  125916.152644     170178.369648   \n",
+       "std      4551.588572   18961.322917   31036.465825      69509.462130   \n",
+       "min     23779.000000    4674.000000  117879.000000       4673.000000   \n",
+       "25%    118102.000000  118395.000000  118274.000000     117906.000000   \n",
+       "50%    118300.000000  118921.000000  118568.000000     128696.000000   \n",
+       "75%    118386.000000  120535.000000  120006.000000     235280.000000   \n",
+       "max    286791.000000  286792.000000  311867.000000     311867.000000   \n",
+       "\n",
+       "         ROLE_FAMILY      ROLE_CODE  \n",
+       "count   32769.000000   32769.000000  \n",
+       "mean   183703.408893  119789.430132  \n",
+       "std    100488.407413    5784.275516  \n",
+       "min      3130.000000  117880.000000  \n",
+       "25%    118363.000000  118232.000000  \n",
+       "50%    119006.000000  118570.000000  \n",
+       "75%    290919.000000  119348.000000  \n",
+       "max    308574.000000  270691.000000  "
+      ]
+     },
+     "execution_count": 3,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "train.describe()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "# split the train data into X and y\n",
+    "# y = action (1 or 0) , X is everything else\n",
+    "\n",
+    "features = ['RESOURCE', 'MGR_ID','ROLE_ROLLUP_1', 'ROLE_ROLLUP_2', 'ROLE_DEPTNAME', 'ROLE_TITLE', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY', 'ROLE_CODE']\n",
+    "X = train[features]\n",
+    "y = train['ACTION']\n",
+    "X_test_class = test[features]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "# perform train_test_split using default settings.\n",
+    "X_train, X_test, y_train, y_test = train_test_split(X, y, random_state = 4)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Testing accuracy for Logistic Regresssion"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "LogisticRegression(C=1.0, class_weight=None, dual=False, fit_intercept=True,\n",
+       "          intercept_scaling=1, max_iter=100, multi_class='ovr', n_jobs=1,\n",
+       "          penalty='l2', random_state=None, solver='liblinear', tol=0.0001,\n",
+       "          verbose=0, warm_start=False)"
+      ]
+     },
+     "execution_count": 6,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# train a logistic regression model\n",
+    "from sklearn.linear_model import LogisticRegression\n",
+    "logreg = LogisticRegression()\n",
+    "logreg.fit(X_train, y_train)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "#make predictions for the testing set \n",
+    "y_pred_logreg = logreg.predict(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.945807396558\n"
+     ]
+    }
+   ],
+   "source": [
+    "# calculate accuracy\n",
+    "print metrics.accuracy_score(y_test, y_pred_logreg)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Testing accuracy for Naive Bayes"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "GaussianNB()"
+      ]
+     },
+     "execution_count": 9,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# train a naiye bayes model\n",
+    "from sklearn.naive_bayes import GaussianNB\n",
+    "gnb = GaussianNB()\n",
+    "gnb.fit(X_train, y_train)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "y_pred_gnb = gnb.predict(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.91688026364\n"
+     ]
+    }
+   ],
+   "source": [
+    "# calculate accuracy\n",
+    "print metrics.accuracy_score(y_test, y_pred_gnb)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Testing accuracy for KNN"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',\n",
+       "           metric_params=None, n_jobs=1, n_neighbors=26, p=2,\n",
+       "           weights='uniform')"
+      ]
+     },
+     "execution_count": 12,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# train a KNN model\n",
+    "from sklearn.neighbors import KNeighborsClassifier\n",
+    "knn = KNeighborsClassifier(n_neighbors =26)\n",
+    "knn.fit(X_train, y_train)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "y_pred_knn = knn.predict(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.945929451971\n"
+     ]
+    }
+   ],
+   "source": [
+    "# calculate accuracy\n",
+    "print metrics.accuracy_score(y_test, y_pred_knn)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Testing accuracy for SVM"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "SVC(C=1.0, cache_size=200, class_weight=None, coef0=0.0,\n",
+       "  decision_function_shape=None, degree=3, gamma='auto', kernel='rbf',\n",
+       "  max_iter=-1, probability=False, random_state=None, shrinking=True,\n",
+       "  tol=0.001, verbose=False)"
+      ]
+     },
+     "execution_count": 15,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# train a SVM model\n",
+    "from sklearn import svm\n",
+    "svc = svm.SVC()\n",
+    "svc.fit(X_train, y_train)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "y_pred_svm  = svc.predict(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.946051507384\n"
+     ]
+    }
+   ],
+   "source": [
+    "# calculate accuracy\n",
+    "print metrics.accuracy_score(y_test, y_pred_svm)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Testing for Gradient Boosting Classifier"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Null accuracy"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "GradientBoostingClassifier(init=None, learning_rate=0.1, loss='deviance',\n",
+       "              max_depth=3, max_features=None, max_leaf_nodes=None,\n",
+       "              min_samples_leaf=1, min_samples_split=2,\n",
+       "              min_weight_fraction_leaf=0.0, n_estimators=100,\n",
+       "              presort='auto', random_state=None, subsample=1.0, verbose=0,\n",
+       "              warm_start=False)"
+      ]
+     },
+     "execution_count": 18,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "from sklearn.ensemble import GradientBoostingClassifier\n",
+    "gbm = GradientBoostingClassifier()\n",
+    "gbm.fit(X_train, y_train)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "y_pred_gbm  = gbm.predict(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.947150006103\n"
+     ]
+    }
+   ],
+   "source": [
+    "# calculate accuracy\n",
+    "print metrics.accuracy_score(y_test, y_pred_gbm)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Compute frequency distribution of 1s and 0s "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "1    7749\n",
+       "0     444\n",
+       "dtype: int64"
+      ]
+     },
+     "execution_count": 21,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "y_test.value_counts()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.94580739655803736"
+      ]
+     },
+     "execution_count": 22,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# calculate the percentage of ones\n",
+    "y_test.mean()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.054192603441962639"
+      ]
+     },
+     "execution_count": 23,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# calculate the percentage of zeros\n",
+    "1-y_test.mean()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "This tells us that if we use a dumb model that predicts 1 all the time, we'd have a 94% accuracy and if we predicted a 0 all the time, we'd have 5% accuracy. Suddenly, our models don't look so good. SVM provides the highest accuracy of 94.6%"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "('The best value for knn is:', 0.94592945197119493)\n",
+      "('The best value for LogisticRegression is:', 0.94580739655803736)\n",
+      "('The best value for svm is:', 0.94605150738435251)\n",
+      "('The best value for gbm is:', 0.94715000610277067)\n",
+      "('The best value for naive bayes is:', 0.91688026363969244)\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(\"The best value for knn is:\", metrics.accuracy_score(y_test, y_pred_knn))\n",
+    "print(\"The best value for LogisticRegression is:\",metrics.accuracy_score(y_test, y_pred_logreg) )\n",
+    "print(\"The best value for svm is:\", metrics.accuracy_score(y_test, y_pred_svm))\n",
+    "print(\"The best value for gbm is:\", metrics.accuracy_score(y_test, y_pred_gbm))\n",
+    "print(\"The best value for naive bayes is:\",metrics.accuracy_score(y_test, y_pred_gnb) )"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Getting the best parameters on GBM using GridSearchCV"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "# Select grid parameters and train grid object\n",
+    "param_grid = {'learning_rate': [0.1, 0.05, 0.02, 0.01],\n",
+    "              'max_depth': [4, 6],\n",
+    "              'min_samples_leaf': [3, 5, 9, 17],\n",
+    "              # 'max_features': [1.0, 0.3, 0.1] ## not possible in our example (only 1 fx)\n",
+    "              }\n",
+    "grid = GridSearchCV(gbm, param_grid, cv = 10, scoring = 'accuracy')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "GridSearchCV(cv=10, error_score='raise',\n",
+       "       estimator=GradientBoostingClassifier(init=None, learning_rate=0.1, loss='deviance',\n",
+       "              max_depth=3, max_features=None, max_leaf_nodes=None,\n",
+       "              min_samples_leaf=1, min_samples_split=2,\n",
+       "              min_weight_fraction_leaf=0.0, n_estimators=100,\n",
+       "              presort='auto', random_state=None, subsample=1.0, verbose=0,\n",
+       "              warm_start=False),\n",
+       "       fit_params={}, iid=True, n_jobs=1,\n",
+       "       param_grid={'learning_rate': [0.1, 0.05, 0.02, 0.01], 'max_depth': [4, 6], 'min_samples_leaf': [3, 5, 9, 17]},\n",
+       "       pre_dispatch='2*n_jobs', refit=True, scoring='accuracy', verbose=0)"
+      ]
+     },
+     "execution_count": 26,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# fit our grid object with X_train and y_train\n",
+    "grid.fit(X_train, y_train)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "('The best score is: ', 0.9447021484375)\n",
+      "('The best parameters are: ', {'learning_rate': 0.1, 'max_depth': 6, 'min_samples_leaf': 9})\n",
+      "('The best Classification is: ', GradientBoostingClassifier(init=None, learning_rate=0.1, loss='deviance',\n",
+      "              max_depth=6, max_features=None, max_leaf_nodes=None,\n",
+      "              min_samples_leaf=9, min_samples_split=2,\n",
+      "              min_weight_fraction_leaf=0.0, n_estimators=100,\n",
+      "              presort='auto', random_state=None, subsample=1.0, verbose=0,\n",
+      "              warm_start=False))\n"
+     ]
+    }
+   ],
+   "source": [
+    "print ('The best score is: ', grid.best_score_)\n",
+    "print ('The best parameters are: ',grid.best_params_)\n",
+    "print ('The best Classification is: ',grid.best_estimator_)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Classifiy based on predicted probabilities "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "LogisticRegression(C=1.0, class_weight=None, dual=False, fit_intercept=True,\n",
+       "          intercept_scaling=1, max_iter=100, multi_class='ovr', n_jobs=1,\n",
+       "          penalty='l2', random_state=None, solver='liblinear', tol=0.0001,\n",
+       "          verbose=0, warm_start=False)"
+      ]
+     },
+     "execution_count": 28,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# \n",
+    "logreg = LogisticRegression()\n",
+    "logreg.fit(X, y)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### ROC curves"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 29,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "#y_pred = logreg.predict_proba(X_test)[:, 1]\n",
+    "\n",
+    "y_pred = logreg.predict_proba(X_test)[:, 1]\n",
+    "#from sklearn.preprocessing import binarize\n",
+    "#y_pred = binarize(y_pred, 0.9)[0]\n",
+    "#df = pd.DataFrame({'id': test.id, 'Action': y_pred})\n",
+    "#df.tail()\n",
+    "#df.to_csv('kagglesubmission.csv')\n",
+    "#scores about .88"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.text.Text at 0x10b79be90>"
+      ]
+     },
+     "execution_count": 30,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<matplotlib.figure.Figure at 0x10b781410>"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "#\n",
+    "fpr, tpr, thresholds = metrics.roc_curve(y_test, y_pred)\n",
+    "plt.plot(fpr, tpr)\n",
+    "plt.xlim(0.0, 1.0)\n",
+    "plt.ylim(0.0, 1.0)\n",
+    "plt.title('ROC for access classifier')\n",
+    "plt.xlabel('1-Specificity')\n",
+    "plt.ylabel('Sensitivity')\n",
+    "\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "# define a function that accepts a threshold and prints sensitivity and specificity\n",
+    "def evaluate_threshold(threshold):\n",
+    "    print 'Sensitivity: ', tpr[thresholds > threshold][-1]\n",
+    "    print 'Specificity: ', 1-fpr[thresholds > threshold][-1]\n",
+    "    "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 32,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Sensitivity:  0.993934701252\n",
+      "Specificity:  0.0\n"
+     ]
+    }
+   ],
+   "source": [
+    "evaluate_threshold(0.9)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 33,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.542636132067\n"
+     ]
+    }
+   ],
+   "source": [
+    "#Compute AUC\n",
+    "print metrics.roc_auc_score(y_test, y_pred)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 2",
+   "language": "python",
+   "name": "python2"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 2
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython2",
+   "version": "2.7.11"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 0
+}
